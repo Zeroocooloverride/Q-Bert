@@ -1,0 +1,43 @@
+{
+  "accountAssociation": {
+    "header": "REPLACE_WITH_YOUR_HEADER",
+    "payload": "REPLACE_WITH_YOUR_PAYLOAD",
+    "signature": "REPLACE_WITH_YOUR_SIGNATURE"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Q*bert Game",
+    "iconUrl": "https://your-domain.com/qbert-icon.png",
+    "homeUrl": "https://your-domain.com",
+    "imageUrl": "https://your-domain.com/qbert-preview.png",
+    "buttonTitle": "🎮 Play Q*bert",
+    "splashImageUrl": "https://your-domain.com/qbert-icon.png",
+    "splashBackgroundColor": "#2c2c2c",
+    "subtitle": "Classic arcade game with token rewards",
+    "description": "Play the classic Q*bert game and earn Q*BERT tokens on Base! Change all cubes to yellow while avoiding Coily the snake. Earn 100 tokens per level and 500 bonus tokens every 5 levels!",
+    "screenshotUrls": [
+      "https://your-domain.com/screenshot1.png",
+      "https://your-domain.com/screenshot2.png",
+      "https://your-domain.com/screenshot3.png"
+    ],
+    "primaryCategory": "games",
+    "tags": [
+      "arcade",
+      "retro",
+      "tokens",
+      "rewards",
+      "qbert"
+    ],
+    "heroImageUrl": "https://your-domain.com/qbert-hero.png",
+    "tagline": "Jump, dodge, and earn tokens!",
+    "ogTitle": "Q*bert Game - Farcaster Edition",
+    "ogDescription": "Classic Q*bert arcade game with token rewards on Base network",
+    "ogImageUrl": "https://your-domain.com/qbert-preview.png",
+    "requiredChains": [
+      "eip155:8453"
+    ],
+    "requiredCapabilities": [
+      "wallet.getEthereumProvider"
+    ]
+  }
+}
