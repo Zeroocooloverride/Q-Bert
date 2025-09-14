@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Q*bert Game - Farcaster Edition</title>
+    
+    <!-- Farcaster Mini App Embed Meta Tags -->
+    <meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://your-domain.com/qbert-preview.png","button":{"title":"🎮 Play Q*bert","action":{"type":"launch_frame","name":"Q*bert Game","url":"https://your-domain.com","splashImageUrl":"https://your-domain.com/qbert-icon.png","splashBackgroundColor":"#2c2c2c"}}}' />
+    
+    <!-- For backward compatibility -->
+    <meta name="fc:frame" content='{"version":"1","imageUrl":"https://your-domain.com/qbert-preview.png","button":{"title":"🎮 Play Q*bert","action":{"type":"launch_frame","name":"Q*bert Game","url":"https://your-domain.com","splashImageUrl":"https://your-domain.com/qbert-icon.png","splashBackgroundColor":"#2c2c2c"}}}' />
+    
+    <!-- OpenGraph tags for social sharing -->
+    <meta property="og:title" content="Q*bert Game - Farcaster Edition" />
+    <meta property="og:description" content="Classic Q*bert game with token rewards! Earn Q*BERT tokens as you play!" />
+    <meta property="og:image" content="https://your-domain.com/qbert-preview.png" />
+
+    <!-- Farcaster Mini App SDK -->
+    <script type="module">
+      import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk@latest';
+      window.farcasterSDK = sdk;
+    </script>
+
+    <!-- Wagmi and Viem for wallet integration -->
+    <script type="module">
+      import { createConfig, http, reconnect, watchAccount } from 'https://esm.sh/wagmi@latest';
+      import { base } from 'https://esm.sh/wagmi@latest/chains';
+      import { farcasterFrame } from 'https://esm.sh/@farcaster/miniapp-wagmi-connector@latest';
+      
+      // Store for global access
+      window.wagmiImports = {
+        createConfig,
+        http,
+        reconnect,
+        watchAccount,
+        base,
+        farcasterFrame
+      };
+    </script>
+
+    <style>
+      :root {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      html,
+      body {
+        height: 100vh;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      body {
+        background: #2c2c2c;
+        font-family: Arial, sans-serif;
+        color: white;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        touch-action: manipulation;
+      }
+
+      #game-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+      }
+
+      #game {
+        margin: 0 auto;
+        position: relative;
+        width: 1000px;
+        height: 800px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f1419 100%);
+        border: 3px solid #fff;
+        border-radius: 10px;
+        overflow: visible;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      /* Token rewards display */
+      #token-display {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 10px 15px;
+        border-radius: 8px;
+        border: 2px solid #fc6b19;
+        font-size: 14px;
+        z-index: 100;
+      }
+
+      #token-display .token-balance {
+        color: #FFD700;
+        font-weight: bold;
+        font-size: 16px;
+      }
+
+      #token-display .wallet-status {
+        color: #90EE90;
+        font-size: 12px;
+        margin-top: 5px;
+      }
+
+      /* Connect wallet button */
+      #connect-wallet {
+        position: absolute;
+        top: 60px;
+        right: 10px;
+        padding: 8px 15px;
+        background: #fc6b19;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        z-index: 100;
+        transition: all 0.3s ease;
+      }
+
+      #connect-wallet:hover {
+        background: #c9401a;
+        transform: scale(1.05);
+      }
+
+      #connect-wallet.connected {
+        background: #4CAF50;
+      }
+
+      /* Token animation */
+      .token-reward {
+        position: absolute;
+        color: #FFD700;
+        font-size: 24px;
+        font-weight: bold;
+        animation: floatUp 2s ease-out forwards;
+        pointer-events: none;
+        z-index: 200;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      }
+
+      @keyframes floatUp {
+        0% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        100% {
+          opacity: 0;
+          transform: translateY(-100px);
+        }
+      }
+
+      #score-board {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 18px;
+        font-weight: bold;
+        color: white;
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        z-index: 60;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 8px 15px;
+        border-radius: 8px;
+      }
+
+      .score-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      .score-label {
+        font-size: 10px;
+        color: #dde345;
+        margin-bottom: 2px;
+      }
+
+      .score-value {
+        font-size: 16px;
+        color: white;
+      }
+
+      #qbert {
+        background: #fc6b19;
+        height: 5px;
+        position: absolute;
+        width: 5px;
+        top: 200px;
+        left: 500px;
+        z-index: 50;
+        transition:
+          top 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+          left 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+        box-shadow:
+          5px 0 0 #fc6b19,
+          10px 0 0 #fc6b19,
+          -5px 0 0 #fc6b19,
+          0 5px 0 #fc6b19,
+          5px 5px 0 #c9401a,
+          10px 5px 0 #c9401a,
+          15px 5px 0 #c9401a,
+          20px 5px 0 #c9401a,
+          -5px 5px 0 #fc6b19,
+          -10px 5px 0 #fc6b19,
+          0 10px 0 #c9401a,
+          5px 10px 0 #fff,
+          10px 10px 0 #fff,
+          15px 10px 0 #c9401a,
+          20px 10px 0 #fff,
+          25px 10px 0 #fff,
+          -5px 10px 0 #fc6b19,
+          -10px 10px 0 #c9401a,
+          -15px 10px 0 #c9401a,
+          0 15px 0 #c9401a,
+          5px 15px 0 #222,
+          10px 15px 0 #222,
+          15px 15px 0 #c9401a,
+          20px 15px 0 #222,
+          25px 15px 0 #222,
+          -5px 15px 0 #fc6b19,
+          -10px 15px 0 #fc6b19,
+          -15px 15px 0 #c9401a,
+          0 20px 0 #c9401a,
+          5px 20px 0 #222,
+          10px 20px 0 #222,
+          15px 20px 0 #c9401a,
+          20px 20px 0 #222,
+          25px 20px 0 #222,
+          30px 20px 0 #fc6b19,
+          -5px 20px 0 #fc6b19,
+          -10px 20px 0 #c9401a,
+          -15px 20px 0 #c9401a,
+          -20px 20px 0 #c9401a,
+          0 25px 0 #fc6b19,
+          5px 25px 0 #c9401a,
+          10px 25px 0 #c9401a,
+          15px 25px 0 #fc6b19,
+          20px 25px 0 #fc6b19,
+          25px 25px 0 #fc6b19,
+          30px 25px 0 #fc6b19,
+          35px 25px 0 #fc6b19,
+          40px 25px 0 #fc6b19,
+          45px 25px 0 #fc6b19,
+          -5px 25px 0 #fc6b19,
+          -10px 25px 0 #fc6b19,
+          -15px 25px 0 #c9401a,
+          -20px 25px 0 #c9401a,
+          0 30px 0 #fc6b19,
+          5px 30px 0 #fc6b19,
+          10px 30px 0 #fc6b19,
+          15px 30px 0 #fc6b19,
+          20px 30px 0 #fc6b19,
+          25px 30px 0 #fc6b19,
+          30px 30px 0 #fc6b19,
+          35px 30px 0 #fc6b19,
+          40px 30px 0 #fc6b19,
+          45px 30px 0 #fc6b19,
+          50px 30px 0 #fc6b19,
+          -5px 30px 0 #fc6b19,
+          -10px 30px 0 #c9401a,
+          -15px 30px 0 #c9401a,
+          -20px 30px 0 #c9401a,
+          0 35px 0 #fc6b19,
+          5px 35px 0 #c9401a,
+          10px 35px 0 #fc6b19,
+          15px 35px 0 #c9401a,
+          20px 35px 0 #fc6b19,
+          25px 35px 0 #c9401a,
+          30px 35px 0 #c9401a,
+          35px 35px 0 #c9401a,
+          40px 35px 0 #fc6b19,
+          45px 35px 0 #fc6b19,
+          50px 35px 0 #fc6b19,
+          55px 35px 0 #fc6b19,
+          -5px 35px 0 #c9401a,
+          -10px 35px 0 #c9401a,
+          -15px 35px 0 #c9401a,
+          -20px 35px 0 #c9401a,
+          0 40px 0 #c9401a,
+          5px 40px 0 #c9401a,
+          10px 40px 0 #c9401a,
+          15px 40px 0 #c9401a,
+          20px 40px 0 #c9401a,
+          35px 40px 0 #c9401a,
+          40px 40px 0 #c9401a,
+          45px 40px 0 #222,
+          50px 40px 0 #222,
+          55px 40px 0 #fc6b19,
+          -5px 40px 0 #c9401a,
+          -10px 40px 0 #c9401a,
+          -15px 40px 0 #c9401a,
+          0 45px 0 #c9401a,
+          5px 45px 0 #c9401a,
+          10px 45px 0 #c9401a,
+          15px 45px 0 #c9401a,
+          20px 45px 0 #c9401a,
+          40px 45px 0 #c9401a,
+          45px 45px 0 #222,
+          50px 45px 0 #222,
+          55px 45px 0 #fc6b19,
+          -5px 45px 0 #c9401a,
+          -10px 45px 0 #c9401a,
+          0 50px 0 #c9401a,
+          5px 50px 0 #c9401a,
+          10px 50px 0 #c9401a,
+          15px 50px 0 #c9401a,
+          40px 50px 0 #c9401a,
+          45px 50px 0 #c9401a,
+          50px 50px 0 #c9401a,
+          55px 50px 0 #fc6b19,
+          -5px 50px 0 #c9401a,
+          -5px 55px 0 #c9401a,
+          15px 55px 0 #c9401a,
+          -5px 60px 0 #c9401a,
+          15px 60px 0 #c9401a,
+          0px 65px 0 #fc6b19,
+          -5px 65px 0 #c9401a,
+          -10px 65px 0 #fc6b19,
+          15px 65px 0 #c9401a,
+          20px 65px 0 #fc6b19,
+          -5px 70px 0 #fc6b19,
+          0px 70px 0 #fc6b19,
+          5px 70px 0 #fc6b19,
+          15px 70px 0 #fc6b19,
+          20px 70px 0 #fc6b19,
+          25px 70px 0 #fc6b19,
+          30px 70px 0 #fc6b19;
+      }
+
+      .jump {
+        animation: jumpAnim 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      @keyframes jumpAnim {
+        0% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-30px);
+        }
+        100% {
+          transform: translateY(0);
+        }
+      }
+
+      #qbert:before {
+        content: "\0020";
+        border: solid 14px transparent;
+        border-left: 0;
+        border-right-color: #fff;
+        display: block;
+        overflow: hidden;
+        position: absolute;
+        top: -12px;
+        left: 46px;
+        transform: rotate(-30deg);
+      }
+
+      #qbert:after {
+        content: "S@#%$!";
+        background: #fff;
+        color: #222;
+        font-size: 12px;
+        font-weight: bold;
+        font-family: Arial, sans-serif;
+        padding: 8px 12px;
+        position: absolute;
+        left: 50px;
+        top: -35px;
+        border-radius: 15px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      #qbert.speaking:after {
+        opacity: 1;
+      }
+
+      #pyramid {
+        position: absolute;
+        top: 200px;
+        left: 475px;
+      }
+
+      .cube {
+        height: 40px;
+        width: 40px;
+        background: #4169e1;
+        transform: rotate(45deg);
+        position: absolute;
+        transition: background-color 0.2s ease;
+      }
+
+      .cube:before {
+        content: "";
+        height: 40px;
+        width: 24px;
+        background: #314840;
+        position: absolute;
+        top: 12px;
+        left: 40px;
+        transform: skew(0deg, 45deg);
+      }
+
+      .cube:after {
+        content: "";
+        height: 24px;
+        width: 40px;
+        background: #56a993;
+        position: absolute;
+        top: 40px;
+        left: 12px;
+        transform: skew(45deg, 0deg);
+      }
+
+      #start-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.95);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        color: white;
+        text-align: center;
+        border-radius: 10px;
+      }
+
+      #start-screen.hidden {
+        display: none;
+      }
+
+      #start-screen h1 {
+        font-size: 48px;
+        margin-bottom: 20px;
+        color: #fc6b19;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      }
+
+      #start-screen h2 {
+        font-size: 24px;
+        margin-bottom: 30px;
+        color: #dde345;
+      }
+
+      .instructions-box {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 25px;
+        border-radius: 15px;
+        max-width: 400px;
+        width: 90%;
+        margin-bottom: 30px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .instructions-box p {
+        margin: 15px 0;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+
+      .instructions-box strong {
+        color: #dde345;
+      }
+
+      .instructions-box em {
+        color: #fc6b19;
+        font-style: normal;
+      }
+
+      .token-info {
+        background: rgba(252, 107, 25, 0.2);
+        border: 2px solid #fc6b19;
+        padding: 15px;
+        border-radius: 10px;
+        margin-top: 15px;
+      }
+
+      .token-info p {
+        margin: 8px 0;
+        color: #FFD700;
+      }
+
+      button {
+        padding: 15px 30px;
+        font-size: 18px;
+        background: #fc6b19;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 15px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+      }
+
+      button:hover {
+        background: #c9401a;
+        transform: scale(1.05);
+      }
+
+      /* Mobile Controls */
+      #mobile-controls {
+        position: absolute;
+        bottom: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        z-index: 100;
+        max-width: 320px;
+        width: max-content;
+        padding: 6px;
+        box-sizing: border-box;
+      }
+
+      .mobile-control-row {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+      }
+
+      .mobile-btn {
+        width: 50px;
+        height: 50px;
+        background: rgba(252, 107, 25, 0.9);
+        border: 2px solid #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        user-select: none;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .mobile-btn:active {
+        background: rgba(201, 64, 26, 1);
+        transform: scale(0.9);
+        box-shadow: 0 0 10px rgba(252, 107, 25, 0.8);
+      }
+
+      @media (pointer: coarse), (max-width: 768px) {
+        #mobile-controls {
+          display: flex;
+          position: fixed;
+          left: 50%;
+          transform: translateX(-50%);
+          bottom: 12px;
+          width: min(92%, 320px);
+          max-width: 92%;
+          padding: 6px;
+          gap: 8px;
+        }
+      }
+
+      /* Coily Enemy */
+      .coily {
+        position: absolute;
+        z-index: 45;
+        width: 30px;
+        height: 30px;
+        transition:
+          top 0.4s ease,
+          left 0.4s ease;
+      }
+
+      .coily-egg {
+        background: radial-gradient(circle at 30% 30%, #9966cc, #6b46c1);
+        border-radius: 50%;
+        border: 2px solid #8b5cf6;
+        animation: bounce 1s ease-in-out infinite;
+      }
+
+      .coily-snake {
+        background: #8b5cf6;
+        border-radius: 20%;
+        border: 2px solid #6b46c1;
+        position: relative;
+      }
+
+      .coily-snake:before {
+        content: "🐍";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 16px;
+      }
+
+      @keyframes bounce {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.1);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <div id="game">
+        <!-- Token Display -->
+        <div id="token-display">
+          <div>Q*BERT Tokens: <span class="token-balance" id="token-balance">0</span></div>
+          <div class="wallet-status" id="wallet-status">Not Connected</div>
+        </div>
+        
+        <!-- Connect Wallet Button -->
+        <button id="connect-wallet">Connect Wallet</button>
+
+        <!-- Scoreboard -->
+        <div id="score-board">
+          <div class="score-item">
+            <div class="score-label">SCORE</div>
+            <div class="score-value" id="score">0</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">LEVEL</div>
+            <div class="score-value" id="level">1</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">ROUND</div>
+            <div class="score-value" id="round">1</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">LIVES</div>
+            <div class="score-value" id="lives">3</div>
+          </div>
+        </div>
+
+        <div id="start-screen">
+          <h1>Q*bert Game</h1>
+          <h2>Farcaster Edition</h2>
+
+          <div class="instructions-box">
+            <p><strong>Objective:</strong> Change all 28 cubes to yellow!</p>
+            <p><strong>Controls:</strong> Q=↖, W=↗, A=↙, S=↘ (or arrow keys)</p>
+            <p><strong>Mobile:</strong> Use touch buttons at bottom!</p>
+            <p><strong>Enemies:</strong> Avoid Coily the snake!</p>
+            
+            <div class="token-info">
+              <p>🪙 <strong>Earn Q*BERT Tokens!</strong></p>
+              <p>• 100 tokens per level completed</p>
+              <p>• 500 bonus tokens every 5 levels!</p>
+            </div>
+          </div>
+
+          <button id="start-button">🎮 START GAME</button>
+        </div>
+
+        <div id="pyramid"></div>
+        <div id="qbert"></div>
+
+        <!-- Mobile Controls -->
+        <div id="mobile-controls">
+          <div class="mobile-control-row">
+            <button class="mobile-btn" data-direction="up-left">↖</button>
+            <button class="mobile-btn" data-direction="up-right">↗</button>
+          </div>
+          <div class="mobile-control-row">
+            <button class="mobile-btn" data-direction="down-left">↙</button>
+            <button class="mobile-btn" data-direction="down-right">↘</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
